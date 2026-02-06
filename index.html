@@ -2,123 +2,93 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LandMap PWA</title>
-
-  <!-- EXIF Reader -->
-  <script src="https://unpkg.com/exifr/dist/lite.umd.js"></script>
-
-  <!-- JSZip (ทำ KMZ) -->
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-
+  <link rel="manifest" href="manifest.json" />
   <style>
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #f4f4f4;
-      margin: 0;
-      padding: 20px;
-    }
-    .card {
-      max-width: 420px;
-      margin: auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.1);
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    input, button {
-      width: 100%;
-      padding: 12px;
-      margin: 8px 0;
-      font-size: 16px;
-    }
-    button {
-      border: none;
-      border-radius: 8px;
-      background: #e0e0e0;
-      cursor: pointer;
-    }
-    button.primary {
-      background: #1976d2;
-      color: #fff;
-    }
-    small {
-      color: #666;
-    }
+    body { font-family: system-ui, sans-serif; background:#f5f7fa; }
+    .card { max-width:420px; margin:30px auto; background:#fff; padding:20px; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,.08); }
+    h1 { text-align:center; }
+    input, button { width:100%; padding:10px; margin-top:8px; font-size:16px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { border:1px solid #ddd; padding:6px; text-align:center; }
+    button { background:#1976d2; color:white; border:none; border-radius:8px; }
   </style>
 </head>
-
 <body>
-
 <div class="card">
   <h1>📍 LandMap PWA</h1>
 
-  <input type="file" accept="image/*" capture="environment" id="photoInput">
+  <!-- 1. Upload image -->
+  <input type="file" accept="image/*" id="imageInput" />
+  <p id="exifText">ยังไม่พบพิกัดจากรูป</p>
 
-  <small>เลือกรูปหรือถ่ายรูป (ต้องเปิด Location ตอนถ่าย)</small>
+  <!-- 2. Editable coordinates -->
+  <input id="lat" placeholder="Latitude" />
+  <input id="lon" placeholder="Longitude" />
+  <button onclick="addPoint()">➕ เพิ่มจุดพิกัด</button>
 
-  <input type="number" step="any" id="lat" placeholder="Latitude">
-  <input type="number" step="any" id="lng" placeholder="Longitude">
+  <!-- 3. Point list -->
+  <table>
+    <thead><tr><th>#</th><th>Lat</th><th>Lon</th></tr></thead>
+    <tbody id="points"></tbody>
+  </table>
 
-  <button class="primary" onclick="exportKMZ()">⬇️ Export KMZ</button>
+  <!-- 4. Export KMZ -->
+  <button onclick="exportKMZ()">⬇️ Export KMZ</button>
 </div>
 
+<script src="https://unpkg.com/exifr/dist/lite.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
-const input = document.getElementById("photoInput");
-const latInput = document.getElementById("lat");
-const lngInput = document.getElementById("lng");
+let coords = [];
 
-input.addEventListener("change", async (e) => {
+// 1. Read EXIF GPS
+imageInput.onchange = async e => {
   const file = e.target.files[0];
   if (!file) return;
-
-  const gps = await exifr.gps(file);
-
-  if (!gps || !gps.latitude || !gps.longitude) {
-    alert("❌ ไม่พบพิกัดในรูป (อาจปิด GPS ตอนถ่าย หรือรูปถูกบีบอัด)");
-    return;
+  const exif = await exifr.gps(file);
+  if (exif?.latitude) {
+    lat.value = exif.latitude;
+    lon.value = exif.longitude;
+    exifText.textContent = `อ่านค่าจากรูป: ${exif.latitude}, ${exif.longitude}`;
+  } else {
+    exifText.textContent = 'รูปนี้ไม่มี GPS EXIF';
   }
+};
 
-  latInput.value = gps.latitude.toFixed(6);
-  lngInput.value = gps.longitude.toFixed(6);
-});
+// 2–3. Add & edit points
+function addPoint() {
+  if (!lat.value || !lon.value) return alert('กรอกพิกัดก่อน');
+  coords.push({ lat: lat.value, lon: lon.value });
+  render();
+}
 
-function exportKMZ() {
-  const lat = latInput.value;
-  const lng = lngInput.value;
-
-  if (!lat || !lng) {
-    alert("กรุณาใส่พิกัดก่อน");
-    return;
-  }
-
-  const kml = `
-<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Placemark>
-    <name>LandMap Point</name>
-    <Point>
-      <coordinates>${lng},${lat},0</coordinates>
-    </Point>
-  </Placemark>
-</kml>
-  `.trim();
-
-  const zip = new JSZip();
-  zip.file("doc.kml", kml);
-
-  zip.generateAsync({ type: "blob" }).then(blob => {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "landmap.kmz";
-    a.click();
+function render() {
+  points.innerHTML = '';
+  coords.forEach((p,i)=>{
+    points.innerHTML += `<tr><td>${i+1}</td><td>${p.lat}</td><td>${p.lon}</td></tr>`;
   });
 }
-</script>
 
+// 4. Export KMZ
+async function exportKMZ() {
+  if (coords.length === 0) return alert('ไม่มีจุดพิกัด');
+  let kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>`;
+  coords.forEach((p,i)=>{
+    kml += `<Placemark><name>Point ${i+1}</name><Point><coordinates>${p.lon},${p.lat},0</coordinates></Point></Placemark>`;
+  });
+  kml += '</Document></kml>';
+
+  const zip = new JSZip();
+  zip.file('doc.kml', kml);
+  const blob = await zip.generateAsync({ type:'blob' });
+
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'landmap.kmz';
+  a.click();
+}
+</script>
 </body>
 </html>
