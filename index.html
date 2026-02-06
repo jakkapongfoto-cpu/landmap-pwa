@@ -2,148 +2,61 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <title>📍 LandMap PWA</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- EXIF -->
-  <script src="https://unpkg.com/exif-js"></script>
-
+  <title>OCR → X Y → KMZ</title>
   <style>
-    body {
-      font-family: system-ui, sans-serif;
-      background: #f5f5f5;
-      padding: 20px;
-    }
-    .card {
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      max-width: 420px;
-      margin: auto;
-      box-shadow: 0 10px 25px rgba(0,0,0,.1);
-    }
-    input {
-      width: 100%;
-      padding: 10px;
-      margin: 8px 0;
-      font-size: 16px;
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-    .btn {
-      background: #1976d2;
-      color: white;
-    }
-    .btn-add {
-      background: #2e7d32;
-      color: white;
-    }
-    ul {
-      padding-left: 18px;
-    }
+    body { font-family: sans-serif; padding: 20px; }
+    input, button { margin: 6px 0; }
   </style>
 </head>
 <body>
 
-<div class="card">
-  <h2>📍 LandMap PWA</h2>
+<h2>อัปโหลดรูปภาพ → อ่านพิกัด → ส่งออก KMZ</h2>
 
-  <input type="file" accept="image/*" id="imageInput">
+<input type="file" id="imageInput" accept="image/*" />
+<button onclick="runOCR()">อ่านตัวหนังสือจากรูป</button>
 
-  <label>Latitude</label>
-  <input id="lat" placeholder="Latitude">
+<p>ผลลัพธ์ OCR:</p>
+<textarea id="ocrText" rows="4" cols="50"></textarea>
 
-  <label>Longitude</label>
-  <input id="lng" placeholder="Longitude">
+<hr />
 
-  <button class="btn-add" onclick="addPoint()">➕ เพิ่มจุดพิกัด</button>
+<label>X:</label><br />
+<input type="number" id="x" step="any"><br />
+<label>Y:</label><br />
+<input type="number" id="y" step="any"><br />
 
-  <ul id="pointList"></ul>
+<button onclick="exportKMZ()">ดาวน์โหลดไฟล์ KMZ</button>
 
-  <button class="btn" onclick="exportKMZ()">⬇ Export KMZ</button>
-</div>
-
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 <script>
-let points = [];
+async function runOCR() {
+  const file = document.getElementById('imageInput').files[0];
+  if (!file) return alert('กรุณาเลือกรูป');
 
-document.getElementById("imageInput").addEventListener("change", e => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const { data: { text } } = await Tesseract.recognize(file, 'eng+tha');
+  document.getElementById('ocrText').value = text;
 
-  EXIF.getData(file, function () {
-    const lat = EXIF.getTag(this, "GPSLatitude");
-    const lng = EXIF.getTag(this, "GPSLongitude");
-    const latRef = EXIF.getTag(this, "GPSLatitudeRef");
-    const lngRef = EXIF.getTag(this, "GPSLongitudeRef");
-
-    if (!lat || !lng) {
-      alert("❌ รูปนี้ไม่มี GPS (ต้องเปิด Location ตอนถ่าย)");
-      return;
-    }
-
-    const latitude = convertDMSToDD(lat, latRef);
-    const longitude = convertDMSToDD(lng, lngRef);
-
-    document.getElementById("lat").value = latitude.toFixed(6);
-    document.getElementById("lng").value = longitude.toFixed(6);
-  });
-});
-
-function convertDMSToDD(dms, ref) {
-  let dd = dms[0] + dms[1]/60 + dms[2]/3600;
-  if (ref === "S" || ref === "W") dd *= -1;
-  return dd;
-}
-
-function addPoint() {
-  const lat = document.getElementById("lat").value;
-  const lng = document.getElementById("lng").value;
-  if (!lat || !lng) return alert("กรอกพิกัดก่อน");
-
-  points.push({ lat, lng });
-  renderList();
-}
-
-function renderList() {
-  const ul = document.getElementById("pointList");
-  ul.innerHTML = "";
-  points.forEach((p, i) => {
-    ul.innerHTML += `<li>จุด ${i+1}: ${p.lat}, ${p.lng}</li>`;
-  });
+  // ดึงตัวเลข 2 ค่าแรกเป็น X Y อัตโนมัติ
+  const nums = text.match(/[-+]?\d*\.?\d+/g);
+  if (nums && nums.length >= 2) {
+    document.getElementById('x').value = nums[0];
+    document.getElementById('y').value = nums[1];
+  }
 }
 
 function exportKMZ() {
-  if (points.length === 0) return alert("ยังไม่มีจุดพิกัด");
+  const x = document.getElementById('x').value;
+  const y = document.getElementById('y').value;
 
-  let placemarks = points.map((p, i) => `
-    <Placemark>
-      <name>Point ${i+1}</name>
-      <Point><coordinates>${p.lng},${p.lat},0</coordinates></Point>
-    </Placemark>
-  `).join("");
+  if (!x || !y) return alert('กรุณากรอกพิกัด X Y');
 
-  const kml = `
-  <?xml version="1.0" encoding="UTF-8"?>
-  <kml xmlns="http://www.opengis.net/kml/2.2">
-    <Document>${placemarks}</Document>
-  </kml>`;
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.openes>${x},${y},0</coordinates>
+    </Point>
+  </Placemark>
+</kml>`;
 
-  const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "landmap.kml";
-  a.click();
-}
-</script>
-
-</body>
-</html>
+  const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+  const a = document.createElement= URL.createObjectURL(blob);
+  a.download = 'point.kml';
+  a.cli
