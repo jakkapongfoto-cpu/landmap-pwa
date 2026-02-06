@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>LandMap PWA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      text-align: center;
+    }
+    .box {
+      background: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      max-width: 500px;
+      margin: auto;
+    }
+    input, button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      font-size: 16px;
+    }
+    #result {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="box">
+    <h1>📍 LandMap PWA</h1>
+
+    <button onclick="getLocation()">📸 ดึงค่าพิกัดจากอุปกรณ์</button>
+
+    <label>Latitude</label>
+    <input id="lat" type="text" />
+
+    <label>Longitude</label>
+    <input id="lon" type="text" />
+
+    <button onclick="exportKMZ()">⬇️ Export KMZ</button>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    function getLocation() {
+      if (!navigator.geolocation) {
+        alert("อุปกรณ์ไม่รองรับ GPS");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(pos => {
+        document.getElementById("lat").value = pos.coords.latitude.toFixed(6);
+        document.getElementById("lon").value = pos.coords.longitude.toFixed(6);
+      });
+    }
+
+    function exportKMZ() {
+      const lat = document.getElementById("lat").value;
+      const lon = document.getElementById("lon").value;
+
+      if (!lat || !lon) {
+        alert("กรุณากรอกพิกัดก่อน");
+        return;
+      }
+
+      const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Placemark>
+    <name>Land Point</name>
+    <Point>
+      <coordinates>${lon},${lat},0</coordinates>
+    </Point>
+  </Placemark>
+</kml>`;
+
+      const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "landmap.kmz";
+      a.click();
+
+      document.getElementById("result").innerText =
+        "✅ สร้างไฟล์ KMZ สำเร็จ";
+    }
+  </script>
+</body>
+</html>
