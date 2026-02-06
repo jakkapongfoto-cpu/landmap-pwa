@@ -2,93 +2,148 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LandMap PWA</title>
-  <link rel="manifest" href="manifest.json" />
+  <title>📍 LandMap PWA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- EXIF -->
+  <script src="https://unpkg.com/exif-js"></script>
+
   <style>
-    body { font-family: system-ui, sans-serif; background:#f5f7fa; }
-    .card { max-width:420px; margin:30px auto; background:#fff; padding:20px; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,.08); }
-    h1 { text-align:center; }
-    input, button { width:100%; padding:10px; margin-top:8px; font-size:16px; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; }
-    th, td { border:1px solid #ddd; padding:6px; text-align:center; }
-    button { background:#1976d2; color:white; border:none; border-radius:8px; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    .card {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 420px;
+      margin: auto;
+      box-shadow: 0 10px 25px rgba(0,0,0,.1);
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .btn {
+      background: #1976d2;
+      color: white;
+    }
+    .btn-add {
+      background: #2e7d32;
+      color: white;
+    }
+    ul {
+      padding-left: 18px;
+    }
   </style>
 </head>
 <body>
+
 <div class="card">
-  <h1>📍 LandMap PWA</h1>
+  <h2>📍 LandMap PWA</h2>
 
-  <!-- 1. Upload image -->
-  <input type="file" accept="image/*" id="imageInput" />
-  <p id="exifText">ยังไม่พบพิกัดจากรูป</p>
+  <input type="file" accept="image/*" id="imageInput">
 
-  <!-- 2. Editable coordinates -->
-  <input id="lat" placeholder="Latitude" />
-  <input id="lon" placeholder="Longitude" />
-  <button onclick="addPoint()">➕ เพิ่มจุดพิกัด</button>
+  <label>Latitude</label>
+  <input id="lat" placeholder="Latitude">
 
-  <!-- 3. Point list -->
-  <table>
-    <thead><tr><th>#</th><th>Lat</th><th>Lon</th></tr></thead>
-    <tbody id="points"></tbody>
-  </table>
+  <label>Longitude</label>
+  <input id="lng" placeholder="Longitude">
 
-  <!-- 4. Export KMZ -->
-  <button onclick="exportKMZ()">⬇️ Export KMZ</button>
+  <button class="btn-add" onclick="addPoint()">➕ เพิ่มจุดพิกัด</button>
+
+  <ul id="pointList"></ul>
+
+  <button class="btn" onclick="exportKMZ()">⬇ Export KMZ</button>
 </div>
 
-<script src="https://unpkg.com/exifr/dist/lite.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
-let coords = [];
+let points = [];
 
-// 1. Read EXIF GPS
-imageInput.onchange = async e => {
+document.getElementById("imageInput").addEventListener("change", e => {
   const file = e.target.files[0];
   if (!file) return;
-  const exif = await exifr.gps(file);
-  if (exif?.latitude) {
-    lat.value = exif.latitude;
-    lon.value = exif.longitude;
-    exifText.textContent = `อ่านค่าจากรูป: ${exif.latitude}, ${exif.longitude}`;
-  } else {
-    exifText.textContent = 'รูปนี้ไม่มี GPS EXIF';
-  }
-};
 
-// 2–3. Add & edit points
+  EXIF.getData(file, function () {
+    const lat = EXIF.getTag(this, "GPSLatitude");
+    const lng = EXIF.getTag(this, "GPSLongitude");
+    const latRef = EXIF.getTag(this, "GPSLatitudeRef");
+    const lngRef = EXIF.getTag(this, "GPSLongitudeRef");
+
+    if (!lat || !lng) {
+      alert("❌ รูปนี้ไม่มี GPS (ต้องเปิด Location ตอนถ่าย)");
+      return;
+    }
+
+    const latitude = convertDMSToDD(lat, latRef);
+    const longitude = convertDMSToDD(lng, lngRef);
+
+    document.getElementById("lat").value = latitude.toFixed(6);
+    document.getElementById("lng").value = longitude.toFixed(6);
+  });
+});
+
+function convertDMSToDD(dms, ref) {
+  let dd = dms[0] + dms[1]/60 + dms[2]/3600;
+  if (ref === "S" || ref === "W") dd *= -1;
+  return dd;
+}
+
 function addPoint() {
-  if (!lat.value || !lon.value) return alert('กรอกพิกัดก่อน');
-  coords.push({ lat: lat.value, lon: lon.value });
-  render();
+  const lat = document.getElementById("lat").value;
+  const lng = document.getElementById("lng").value;
+  if (!lat || !lng) return alert("กรอกพิกัดก่อน");
+
+  points.push({ lat, lng });
+  renderList();
 }
 
-function render() {
-  points.innerHTML = '';
-  coords.forEach((p,i)=>{
-    points.innerHTML += `<tr><td>${i+1}</td><td>${p.lat}</td><td>${p.lon}</td></tr>`;
+function renderList() {
+  const ul = document.getElementById("pointList");
+  ul.innerHTML = "";
+  points.forEach((p, i) => {
+    ul.innerHTML += `<li>จุด ${i+1}: ${p.lat}, ${p.lng}</li>`;
   });
 }
 
-// 4. Export KMZ
-async function exportKMZ() {
-  if (coords.length === 0) return alert('ไม่มีจุดพิกัด');
-  let kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>`;
-  coords.forEach((p,i)=>{
-    kml += `<Placemark><name>Point ${i+1}</name><Point><coordinates>${p.lon},${p.lat},0</coordinates></Point></Placemark>`;
-  });
-  kml += '</Document></kml>';
+function exportKMZ() {
+  if (points.length === 0) return alert("ยังไม่มีจุดพิกัด");
 
-  const zip = new JSZip();
-  zip.file('doc.kml', kml);
-  const blob = await zip.generateAsync({ type:'blob' });
+  let placemarks = points.map((p, i) => `
+    <Placemark>
+      <name>Point ${i+1}</name>
+      <Point><coordinates>${p.lng},${p.lat},0</coordinates></Point>
+    </Placemark>
+  `).join("");
 
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'landmap.kmz';
+  const kml = `
+  <?xml version="1.0" encoding="UTF-8"?>
+  <kml xmlns="http://www.opengis.net/kml/2.2">
+    <Document>${placemarks}</Document>
+  </kml>`;
+
+  const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "landmap.kml";
   a.click();
 }
 </script>
+
 </body>
 </html>
