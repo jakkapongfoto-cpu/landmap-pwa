@@ -3,72 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Universal Scanner</title>
+    <title>AI Scanner (Auto-Detect Model)</title>
     <style>
-        body { font-family: 'Sarabun', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f0f4f8; }
-        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        h2 { text-align: center; color: #1a73e8; margin-bottom: 5px; }
+        body { font-family: 'Sarabun', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; color: #333; }
+        .container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        h2 { text-align: center; color: #1a73e8; margin-top: 0; }
         
-        /* Input Groups */
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; font-weight: bold; color: #333; margin-bottom: 5px; font-size: 14px;}
-        .input-group input, .input-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .box { background: #f1f3f4; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #e0e0e0; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; color: #1a73e8; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; background: white; }
         
-        /* Upload Area */
-        .upload-area { border: 2px dashed #1a73e8; background: #e8f0fe; padding: 20px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 15px; }
-        .upload-area:hover { background: #d2e3fc; }
-        #preview { max-width: 100%; display: none; margin-top: 10px; border-radius: 6px; }
-
-        /* Buttons */
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .upload-btn { border: 2px dashed #1a73e8; background: #e8f0fe; padding: 30px; text-align: center; border-radius: 10px; cursor: pointer; color: #1a73e8; font-weight: bold; }
+        .upload-btn:hover { background: #d2e3fc; }
+        #preview { max-width: 100%; display: none; margin-top: 15px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 10px; }
         .btn-primary { background: #1a73e8; color: white; }
-        .btn-primary:disabled { background: #ccc; }
-        .btn-success { background: #34a853; color: white; margin-top: 10px; }
-        .btn-danger { background: #ea4335; color: white; padding: 5px 10px; font-size: 12px; width: auto; }
-
-        /* Table */
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
-        th { background: #f1f3f4; padding: 10px; text-align: center; border: 1px solid #ddd; }
-        td { border: 1px solid #ddd; padding: 5px; }
-        input.coord-input { width: 100%; border: none; text-align: center; font-family: monospace; }
+        .btn-primary:disabled { background: #b0c4de; cursor: not-allowed; }
+        .btn-check { background: #fbbc04; color: #333; margin-top: 5px; font-size: 14px; padding: 8px;}
+        .btn-dl { background: #34a853; color: white; }
         
-        .status { text-align: center; margin: 10px 0; font-size: 14px; color: #555; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th { background: #e8f0fe; padding: 10px; border: 1px solid #ddd; }
+        td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        input.coord { width: 100%; border: none; text-align: center; font-family: monospace; font-size: 14px; }
+        
+        #status { text-align: center; margin: 15px 0; font-size: 14px; color: #555; min-height: 20px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🤖 AI Super Scanner</h2>
+    <h2>🤖 AI Scanner (รุ่นแก้บั๊ก)</h2>
     
-    <div class="input-group">
-        <label>🔑 Google Gemini API Key</label>
+    <div class="box">
+        <label>🔑 1. ใส่ API Key แล้วกดปุ่ม "เช็ครุ่น"</label>
         <input type="password" id="apiKey" placeholder="วางรหัส AIzaSy... ที่นี่">
+        <button class="btn btn-check" onclick="checkAvailableModels()">🔄 กดปุ่มนี้เพื่อค้นหาว่าใช้รุ่นไหนได้บ้าง</button>
     </div>
 
-    <div class="input-group">
-        <label>🧠 เลือกโมเดล AI (ถ้าอันแรก Error ให้ลองเปลี่ยนอันอื่น)</label>
+    <div class="box">
+        <label>🧠 2. เลือกรุ่น AI (ระบบจะดึงมาให้)</label>
         <select id="modelSelect">
-            <option value="gemini-1.5-flash">Gemini 1.5 Flash (แนะนำ - เร็ว)</option>
-            <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Latest)</option>
-            <option value="gemini-1.5-pro">Gemini 1.5 Pro (ฉลาดสุด - ช้าหน่อย)</option>
-            <option value="gemini-1.0-pro">Gemini 1.0 Pro (รุ่นเก่า - เสถียร)</option>
+            <option value="" disabled selected>กรุณากดปุ่มสีเหลืองด้านบนก่อน...</option>
         </select>
     </div>
 
-    <div class="upload-area" onclick="document.getElementById('imageInput').click()">
-        📂 จิ้มเพื่อเลือกรูปตารางพิกัด
+    <div class="upload-btn" onclick="document.getElementById('imageInput').click()">
+        📂 3. จิ้มเพื่อเลือกรูปภาพ
         <input type="file" id="imageInput" accept="image/*" style="display:none">
-        <img id="preview">
     </div>
+    <img id="preview">
 
-    <button id="scanBtn" class="btn btn-primary" onclick="startScan()" disabled>🚀 เริ่มอ่านค่า</button>
-    <p id="status" class="status"></p>
+    <button id="scanBtn" class="btn btn-primary" onclick="startScan()" disabled>🚀 เริ่มสแกน</button>
+    <p id="status"></p>
 
     <div id="resultArea" style="display:none;">
         <table id="dataTable">
             <thead>
                 <tr>
-                    <th width="10%">#</th>
+                    <th width="15%">#</th>
                     <th>X (Easting)</th>
                     <th>Y (Northing)</th>
                     <th width="15%">ลบ</th>
@@ -76,11 +70,12 @@
             </thead>
             <tbody id="tableBody"></tbody>
         </table>
-        <button class="btn btn-success" onclick="downloadKML()">🌍 ดาวน์โหลด KML</button>
+        <button class="btn btn-dl" onclick="downloadKML()">🌍 ดาวน์โหลด KML</button>
     </div>
 </div>
 
 <script>
+    // ตัวแปรและ Elements
     const apiKeyInput = document.getElementById('apiKey');
     const modelSelect = document.getElementById('modelSelect');
     const imageInput = document.getElementById('imageInput');
@@ -89,116 +84,27 @@
     const status = document.getElementById('status');
     const resultArea = document.getElementById('resultArea');
     const tableBody = document.getElementById('tableBody');
-
+    
     let base64Image = "";
 
-    // Load saved API Key
+    // โหลด Key เก่าถ้ามี
     window.onload = () => {
         const savedKey = localStorage.getItem("geminiApiKey");
-        if(savedKey) apiKeyInput.value = savedKey;
-    }
-
-    imageInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            base64Image = reader.result.split(',')[1];
-            preview.src = reader.result;
-            preview.style.display = 'block';
-            checkReady();
-        };
-        reader.readAsDataURL(file);
-    });
-
-    apiKeyInput.addEventListener('input', checkReady);
-
-    function checkReady() {
-        scanBtn.disabled = !(apiKeyInput.value && base64Image);
-    }
-
-    async function startScan() {
-        const key = apiKeyInput.value.trim();
-        const model = modelSelect.value; // เอาชื่อโมเดลจาก Dropdown
-        localStorage.setItem("geminiApiKey", key);
-
-        status.innerText = `⏳ กำลังส่งข้อมูลไปที่โมเดล ${model}...`;
-        scanBtn.disabled = true;
-        tableBody.innerHTML = '';
-        resultArea.style.display = 'none';
-
-        const prompt = "Extract all coordinate numbers from this image table. The left column is X (Easting), right column is Y (Northing). Return ONLY a JSON array of arrays like [[808194, 1456852], ...]. Do not include any markdown formatting.";
-
-        try {
-            // URL แบบนี้รองรับเกือบทุกโมเดล
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-            
-            const response = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [
-                            { text: prompt },
-                            { inline_data: { mime_type: "image/jpeg", data: base64Image } }
-                        ]
-                    }]
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.error) {
-                throw new Error(data.error.message);
-            }
-
-            let text = data.candidates[0].content.parts[0].text;
-            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            const coords = JSON.parse(text);
-
-            status.innerText = `✅ สำเร็จ! พบ ${coords.length} จุด`;
-            
-            coords.forEach((c, i) => addRow(i + 1, c[0], c[1]));
-            resultArea.style.display = 'block';
-
-        } catch (err) {
-            console.error(err);
-            status.innerHTML = `<span style="color:red">❌ เกิดข้อผิดพลาด: ${err.message}<br>ลองเปลี่ยน "รุ่นโมเดล" ในช่องตัวเลือกด้านบนดูครับ</span>`;
-        } finally {
-            scanBtn.disabled = false;
+        if(savedKey) {
+            apiKeyInput.value = savedKey;
+            // ถ้ามี key ให้ลองเช็ค model เลย
+            setTimeout(checkAvailableModels, 500);
         }
     }
 
-    function addRow(index, x, y) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${index}</td>
-            <td><input type="text" class="coord-input val-x" value="${x}"></td>
-            <td><input type="text" class="coord-input val-y" value="${y}"></td>
-            <td style="text-align:center"><button class="btn btn-danger" onclick="this.closest('tr').remove()">ลบ</button></td>
-        `;
-        tableBody.appendChild(tr);
-    }
-
-    function downloadKML() {
-        let kmlBody = '';
-        document.querySelectorAll('#tableBody tr').forEach((row, i) => {
-            const x = row.querySelector('.val-x').value;
-            const y = row.querySelector('.val-y').value;
-            if(x && y) {
-                kmlBody += `<Placemark><name>P${i+1}</name><Point><coordinates>${x},${y},0</coordinates></Point></Placemark>`;
-            }
-        });
-
-        const kmlContent = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>${kmlBody}</Document></kml>`;
+    // ฟังก์ชัน 1: เช็คว่า Key นี้ใช้ Model อะไรได้บ้าง (แก้ปัญหา Model Not Found)
+    async function checkAvailableModels() {
+        const key = apiKeyInput.value.trim();
+        if(!key) return alert("กรุณาใส่ API Key ก่อนครับ");
         
-        const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = "coordinates.kml";
-        a.click();
-    }
-</script>
-
-</body>
-</html>
+        localStorage.setItem("geminiApiKey", key);
+        status.innerText = "⏳ กำลังเชื่อมต่อ Google เพื่อดึงรายชื่อโมเดล...";
+        
+        try {
+            // ยิงไปถาม Google ว่ามี Model อะไรบ้าง
+            const response = await fetch(`
