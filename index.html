@@ -1,62 +1,44 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
-  <title>OCR → X Y → KMZ</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; }
-    input, button { margin: 6px 0; }
-  </style>
-</head>
-<body>
-
-<h2>อัปโหลดรูปภาพ → อ่านพิกัด → ส่งออก KMZ</h2>
-
-<input type="file" id="imageInput" accept="image/*" />
-<button onclick="runOCR()">อ่านตัวหนังสือจากรูป</button>
-
-<p>ผลลัพธ์ OCR:</p>
-<textarea id="ocrText" rows="4" cols="50"></textarea>
-
-<hr />
-
-<label>X:</label><br />
-<input type="number" id="x" step="any"><br />
-<label>Y:</label><br />
-<input type="number" id="y" step="any"><br />
-
-<button onclick="exportKMZ()">ดาวน์โหลดไฟล์ KMZ</button>
-
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 <script>
-async function runOCR() {
-  const file = document.getElementById('imageInput').files[0];
-  if (!file) return alert('กรุณาเลือกรูป');
+imageInput.onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
 
-  const { data: { text } } = await Tesseract.recognize(file, 'eng+tha');
-  document.getElementById('ocrText').value = text;
-
-  // ดึงตัวเลข 2 ค่าแรกเป็น X Y อัตโนมัติ
-  const nums = text.match(/[-+]?\d*\.?\d+/g);
-  if (nums && nums.length >= 2) {
-    document.getElementById('x').value = nums[0];
-    document.getElementById('y').value = nums[1];
+  // 1) พยายามอ่าน EXIF ก่อน
+  const exif = await exifr.gps(file);
+  if (exif?.latitude) {
+    lat.value = exif.latitude;
+    lon.value = exif.longitude;
+    exifText.textContent = `อ่านจาก EXIF: ${exif.latitude}, ${exif.longitude}`;
+    return;
   }
-}
 
-function exportKMZ() {
-  const x = document.getElementById('x').value;
-  const y = document.getElementById('y').value;
+  // 2) ถ้าไม่มี EXIF → ใช้ OCR
+  exifText.textContent = 'ไม่พบ EXIF → AI กำลังอ่านตัวหนังสือจากภาพ...';
 
-  if (!x || !y) return alert('กรุณากรอกพิกัด X Y');
+  const result = await Tesseract.recognize(file, 'eng+tha');
+  const text = result.data.text.replace(/,/g,'.');
 
-  const kml = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.openes>${x},${y},0</coordinates>
-    </Point>
-  </Placemark>
-</kml>`;
+  // ดึงตัวเลขลักษณะพิกัด
+  const nums = text.match(/[-+]?\d{1,3}\.\d+/g);
 
-  const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
-  const a = document.createElement= URL.createObjectURL(blob);
-  a.download = 'point.kml';
-  a.cli
+  if (!nums || nums.length < 2) {
+    exifText.textContent = 'ไม่พบค่าพิกัดจาก OCR';
+    return;
+  }
+
+  let latVal=null, lonVal=null;
+  nums.forEach(n=>{
+    const v=parseFloat(n);
+    if(v>=-90 && v<=90 && latVal===null) latVal=v;
+    else if(v>=-180 && v<=180 && lonVal===null) lonVal=v;
+  });
+
+  if(latVal!==null && lonVal!==null){
+    lat.value=latVal;
+    lon.value=lonVal;
+    exifText.textContent = `อ่านจาก OCR: ${latVal}, ${lonVal}`;
+  } else {
+    exifText.textContent = 'พบตัวเลข แต่ไม่เข้าเงื่อนไขพิกัด';
+  }
+};
+</script>
