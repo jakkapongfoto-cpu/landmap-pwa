@@ -1,72 +1,92 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <title>OCR → X Y → KMZ</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; }
-    input, button { margin: 6px 0; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR Photo to KML</title>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; line-height: 1.6; }
+        h2 { color: #2E86C1; }
+        .container { border: 1px solid #ddd; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input[type="text"], textarea { width: 100%; box-sizing: border-box; margin-bottom: 10px; padding: 8px; }
+        button { background-color: #28B463; color: white; border: none; padding: 10px 20px; cursor: pointer; font-size: 16px; border-radius: 4px; width: 100%; }
+        button:hover { background-color: #239B56; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        #preview { max-width: 100%; margin-top: 10px; border-radius: 4px; display: none; }
+        .status { color: #d35400; font-weight: bold; margin: 10px 0; }
+        .input-group { margin-bottom: 15px; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+    </style>
 </head>
 <body>
 
-<h2>อัปโหลดรูปภาพ → อ่านพิกัด → ส่งออก KMZ</h2>
+<div class="container">
+    <h2>📷 แปลงรูปถ่ายเป็นพิกัด KML</h2>
+    
+    <div class="input-group">
+        <label>1. อัปโหลดรูปภาพที่มีพิกัด</label>
+        <input type="file" id="imageInput" accept="image/*">
+        <img id="preview" alt="Image Preview">
+    </div>
 
-<input type="file" id="imageInput" accept="image/*" />
-<button onclick="runOCR()">อ่านตัวหนังสือจากรูป</button>
+    <p id="status" class="status"></p>
 
-<p>ผลลัพธ์ OCR:</p>
-<textarea id="ocrText" rows="4" cols="50"></textarea>
+    <div class="input-group">
+        <label>2. ข้อความที่อ่านได้ (แก้ไขได้)</label>
+        <textarea id="ocrResult" rows="5" placeholder="ข้อความจากรูปจะปรากฏที่นี่..."></textarea>
+    </div>
 
-<hr />
+    <hr>
 
-<label>X:</label><br />
-<input type="number" id="x" step="any"><br />
-<label>Y:</label><br />
-<input type="number" id="y" step="any"><br />
+    <div class="input-group">
+        <label>📍 พิกัด X (Longitude)</label>
+        <input type="text" id="coordX" placeholder="เช่น 100.12345">
+    </div>
 
-<button onclick="exportKMZ()">ดาวน์โหลดไฟล์ KMZ</button>
+    <div class="input-group">
+        <label>📍 พิกัด Y (Latitude)</label>
+        <input type="text" id="coordY" placeholder="เช่น 13.12345">
+    </div>
+    
+    <div class="input-group">
+        <label>🏷️ ชื่อจุด (Label)</label>
+        <input type="text" id="pointName" value="My Point 01">
+    </div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <button id="downloadBtn" onclick="generateKML()" disabled>🌍 ดาวน์โหลดไฟล์ KML</button>
+</div>
+
 <script>
-async function runOCR() {
-  const file = document.getElementById('imageInput').files[0];
-  if (!file) return alert('กรุณาเลือกรูป');
+    const imageInput = document.getElementById('imageInput');
+    const preview = document.getElementById('preview');
+    const status = document.getElementById('status');
+    const ocrResult = document.getElementById('ocrResult');
+    const coordX = document.getElementById('coordX');
+    const coordY = document.getElementById('coordY');
+    const downloadBtn = document.getElementById('downloadBtn');
 
-  const { data: { text } } = await Tesseract.recognize(file, 'eng+tha');
-  document.getElementById('ocrText').value = text;
+    // เมื่อมีการเลือกรูปภาพ
+    imageInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-  // ดึงตัวเลข 2 ค่าแรกเป็น X Y อัตโนมัติ
-  const nums = text.match(/[-+]?\d*\.?\d+/g);
-  if (nums && nums.length >= 2) {
-    document.getElementById('x').value = nums[0];
-    document.getElementById('y').value = nums[1];
-  }
-}
+        // แสดงรูปตัวอย่าง
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+        status.innerText = "⏳ กำลังอ่านข้อความจากภาพ (อาจใช้เวลาสักครู่)...";
+        downloadBtn.disabled = true;
+        
+        // เริ่มกระบวนการ OCR (รองรับไทย + อังกฤษ)
+        try {
+            const worker = await Tesseract.createWorker('tha+eng');
+            const ret = await worker.recognize(file);
+            const text = ret.data.text;
+            
+            // ใส่ข้อความลงในกล่อง
+            ocrResult.value = text;
+            status.innerText = "✅ อ่านข้อความเสร็จสิ้น!";
+            await worker.terminate();
 
-function exportKMZ() {
-  const x = document.getElementById('x').value;
-  const y = document.getElementById('y').value;
-
-  if (!x || !y) return alert('กรุณากรอกพิกัด X Y');
-
-  const kml = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Placemark>
-    <name>Point</name>
-    <Point>
-      <coordinates>${x},${y},0</coordinates>
-    </Point>
-  </Placemark>
-</kml>`;
-
-  const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'point.kml';
-  a.click();
-}
-</script>
-
-</body>
-</html>
+            // ดึงตัวเลขพิกัดอัตโนมัติ (Auto-extract numbers)
+            extract
