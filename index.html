@@ -3,202 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Scanner (V8: Auto-Select)</title>
+    <title>Multi-Point OCR to KML</title>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <style>
-        body { font-family: 'Sarabun', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; line-height: 1.6; background-color: #f9f9f9; }
+        h2 { color: #2E86C1; text-align: center; }
         .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #1a73e8; margin-top: 0; }
         
-        .box { background: #e8f0fe; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #d2e3fc; }
-        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        /* ปุ่มและ Input */
+        input[type="file"] { display: block; width: 100%; margin: 10px 0; padding: 10px; border: 2px dashed #ccc; border-radius: 8px; text-align: center; cursor: pointer; }
+        button { background-color: #28B463; color: white; border: none; padding: 12px 20px; cursor: pointer; font-size: 16px; border-radius: 6px; width: 100%; transition: 0.3s; margin-top: 10px;}
+        button:hover { background-color: #239B56; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
         
-        .status-badge { display: inline-block; padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; margin-top: 5px;}
-        .status-wait { background: #eee; color: #555; }
-        .status-ok { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .status-err { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-
-        .upload-area { border: 2px dashed #1a73e8; padding: 30px; text-align: center; border-radius: 8px; cursor: pointer; background: white; transition: 0.2s; }
-        .upload-area:hover { background: #f1f3f4; }
+        /* ส่วนแสดงผล */
+        #preview { max-width: 100%; max-height: 300px; object-fit: contain; display: block; margin: 10px auto; border-radius: 8px; border: 1px solid #ddd; display: none; }
+        .status { text-align: center; font-weight: bold; color: #d35400; margin: 15px 0; }
         
-        button { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-
+        /* ตารางพิกัด */
         table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
-        th { background: #1a73e8; color: white; padding: 10px; }
-        td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-        input.coord { width: 100%; text-align: center; border: none; font-family: monospace; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        input.coord-input { width: 90%; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: center; }
+        .del-btn { background-color: #e74c3c; padding: 5px 10px; font-size: 12px; width: auto; }
+        
+        textarea { width: 100%; margin-top: 10px; font-family: monospace; font-size: 12px; color: #555; border: 1px solid #eee; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🤖 AI Scanner (V8)</h2>
+    <h2>📍 สแกนพิกัดหลายจุด -> KML</h2>
     
-    <div class="box">
-        <label>🔑 API Key:</label>
-        <input type="password" id="apiKey" placeholder="วาง API Key แล้วรอสักครู่...">
-        <div id="connectionStatus" class="status-badge status-wait">รอการเชื่อมต่อ...</div>
-    </div>
+    <label>1. เลือกรูปภาพตารางพิกัด</label>
+    <input type="file" id="imageInput" accept="image/*">
+    <img id="preview" alt="Image Preview">
 
-    <div class="upload-area" onclick="document.getElementById('imageInput').click()">
-        📂 จิ้มเพื่อเลือกรูปภาพ
-        <input type="file" id="imageInput" accept="image/*" style="display:none">
-        <img id="preview" style="max-width:100%; display:none; margin-top:10px; border-radius:5px;">
-    </div>
+    <p id="status" class="status"></p>
 
-    <button id="scanBtn" onclick="startScan()" disabled>🚀 เริ่มสแกน</button>
-    <p id="msg" style="text-align:center; font-size:14px; color:#555;"></p>
-
-    <div id="resultArea" style="display:none;">
-        <table id="dataTable">
+    <div id="resultSection" style="display:none;">
+        <h3>2. ตรวจสอบข้อมูล (แก้ไขได้)</h3>
+        <p style="font-size: 12px; color: #666;">*ระบบจะพยายามดึงตัวเลขที่เป็นคู่ในแต่ละบรรทัด</p>
+        
+        <table id="coordsTable">
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>X (Easting)</th>
-                    <th>Y (Northing)</th>
+                    <th width="10%">ที่</th>
+                    <th>X / Lat</th>
+                    <th>Y / Long</th>
+                    <th width="10%">ลบ</th>
                 </tr>
             </thead>
-            <tbody id="tableBody"></tbody>
+            <tbody id="coordsBody">
+                </tbody>
         </table>
-        <button onclick="downloadKML()" style="background:#28a745; margin-top:10px;">🌍 ดาวน์โหลด KML</button>
+        
+        <button onclick="addRow()" style="background-color: #3498DB; margin-top: 5px; width: auto; font-size: 14px;">+ เพิ่มแถวเอง</button>
+        
+        <hr>
+        <button id="downloadBtn" onclick="generateKML()">🌍 ดาวน์โหลดไฟล์ KML (รวมทุกจุด)</button>
+        
+        <details style="margin-top: 20px;">
+            <summary style="cursor: pointer; color: #999;">ดูข้อความดิบจาก OCR</summary>
+            <textarea id="rawText" rows="5"></textarea>
+        </details>
     </div>
 </div>
 
 <script>
-    const apiKeyInput = document.getElementById('apiKey');
-    const statusBadge = document.getElementById('connectionStatus');
-    const scanBtn = document.getElementById('scanBtn');
-    const msg = document.getElementById('msg');
-    let base64Image = "";
-    let selectedModel = ""; // ตัวแปรเก็บชื่อโมเดลที่ใช้ได้จริง
+    const imageInput = document.getElementById('imageInput');
+    const preview = document.getElementById('preview');
+    const status = document.getElementById('status');
+    const resultSection = document.getElementById('resultSection');
+    const coordsBody = document.getElementById('coordsBody');
+    const rawText = document.getElementById('rawText');
 
-    // โหลด Key เดิม
-    window.onload = () => {
-        const savedKey = localStorage.getItem("geminiApiKey");
-        if(savedKey) {
-            apiKeyInput.value = savedKey;
-            checkModelAvailability(savedKey);
-        }
-    }
+    // เมื่อเลือกรูปภาพ
+    imageInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-    apiKeyInput.addEventListener('input', (e) => checkModelAvailability(e.target.value));
-
-    // ฟังก์ชันสำคัญ: หาโมเดลที่ใช้ได้จริงอัตโนมัติ
-    async function checkModelAvailability(key) {
-        if(key.length < 30) return;
-        statusBadge.innerText = "⏳ กำลังค้นหาโมเดล...";
-        statusBadge.className = "status-badge status-wait";
+        // Reset หน้าจอ
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+        coordsBody.innerHTML = ''; 
+        resultSection.style.display = 'none';
+        status.innerText = "⏳ กำลังอ่านตัวหนังสือ... (รอสักครู่)";
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
-            const data = await response.json();
+            // ใช้ Tesseract อ่าน (ตั้งค่าให้อ่านแบบ Block เพื่อรักษาบรรทัด)
+            const worker = await Tesseract.createWorker('eng+tha'); // อ่านไทย+อังกฤษ
+            
+            // ตั้งค่า PSM 6 (Assume a single uniform block of text) เหมาะกับตาราง
+            await worker.setParameters({
+                tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
+            });
 
-            if(data.error) throw new Error(data.error.message);
+            const ret = await worker.recognize(file);
+            const text = ret.data.text;
+            rawText.value = text; // เก็บข้อความดิบไว้ดู
+            
+            await worker.terminate();
+            status.innerText = "✅ อ่านเสร็จสิ้น! กำลังแยกข้อมูล...";
+            
+            // ประมวลผลข้อความแยกเป็นบรรทัด
+            processTextToTable(text);
+            
+            resultSection.style.display = 'block';
+            status.innerText = "";
 
-            // กรองหาเฉพาะโมเดลที่ "อ่านรูปได้" (generateContent)
-            const validModels = data.models.filter(m => 
-                m.supportedGenerationMethods && 
-                m.supportedGenerationMethods.includes("generateContent")
-            );
-
-            if(validModels.length > 0) {
-                // สูตรเลือกโมเดล: พยายามหาตัว Pro หรือ 1.5 ก่อน ถ้าไม่มีเอาตัวไหนก็ได้
-                const bestModel = validModels.find(m => m.name.includes("gemini-1.5-pro")) || 
-                                  validModels.find(m => m.name.includes("gemini-pro")) || 
-                                  validModels[0];
-                
-                selectedModel = bestModel.name.replace("models/", ""); // เก็บชื่อรุ่นไว้ใช้
-                
-                statusBadge.innerText = `✅ พร้อมใช้งาน (รุ่น: ${selectedModel})`;
-                statusBadge.className = "status-badge status-ok";
-                localStorage.setItem("geminiApiKey", key);
-                checkReady();
-            } else {
-                throw new Error("ไม่พบโมเดลที่รองรับการอ่านรูปภาพ");
-            }
         } catch (err) {
-            statusBadge.innerText = "❌ Error: " + err.message;
-            statusBadge.className = "status-badge status-err";
-            scanBtn.disabled = true;
+            status.innerText = "❌ เกิดข้อผิดพลาด: " + err.message;
         }
-    }
-
-    // จัดการรูปภาพ
-    document.getElementById('imageInput').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if(!file) return;
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            base64Image = reader.result.split(',')[1];
-            document.getElementById('preview').src = reader.result;
-            document.getElementById('preview').style.display = 'block';
-            checkReady();
-        };
-        reader.readAsDataURL(file);
     });
 
-    function checkReady() {
-        if(selectedModel && base64Image) scanBtn.disabled = false;
-    }
+    function processTextToTable(text) {
+        // แยกบรรทัดด้วย \n
+        const lines = text.split('\n');
+        let count = 0;
 
-    async function startScan() {
-        scanBtn.disabled = true;
-        msg.innerText = `กำลังส่งข้อมูลไปให้ AI (${selectedModel})...`;
-        document.getElementById('tableBody').innerHTML = '';
-
-        const prompt = "Extract X and Y coordinates from this table. Return ONLY a JSON array like [[808194, 1456852], ...]. No markdown.";
-
-        try {
-            // ใช้ชื่อโมเดลที่หามาได้จริงๆ (selectedModel)
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKeyInput.value}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [
-                            { text: prompt },
-                            { inline_data: { mime_type: "image/jpeg", data: base64Image } }
-                        ]
-                    }]
-                })
-            });
-
-            const data = await response.json();
-            if(data.error) throw new Error(data.error.message);
-
-            let text = data.candidates[0].content.parts[0].text;
-            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            const coords = JSON.parse(text);
-
-            msg.innerText = `✅ สำเร็จ! พบ ${coords.length} จุด`;
+        lines.forEach(line => {
+            // ลบตัวอักษรขยะ เหลือไว้แค่ ตัวเลข, จุด, และ ช่องว่าง
+            let cleanLine = line.replace(/[^0-9\.\s]/g, ' ').trim();
             
-            coords.forEach((c, i) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${i+1}</td><td><input type="text" class="coord val-x" value="${c[0]}"></td><td><input type="text" class="coord val-y" value="${c[1]}"></td>`;
-                document.getElementById('tableBody').appendChild(tr);
-            });
-            document.getElementById('resultArea').style.display = 'block';
+            // Regex หาชุดตัวเลข (รองรับทั้งทศนิยม และ จำนวนเต็มยาวๆ แบบ UTM)
+            // เช่น 100.453 หรือ 808194
+            let matches = cleanLine.match(/(\d+\.\d+|\d{6,7})/g);
 
-        } catch (err) {
-            msg.innerText = "❌ เกิดข้อผิดพลาด: " + err.message;
-            alert("Error: " + err.message);
-        } finally {
-            scanBtn.disabled = false;
+            // เงื่อนไข: ใน 1 บรรทัดต้องเจอตัวเลขอย่างน้อย 2 ชุด (X และ Y)
+            if (matches && matches.length >= 2) {
+                count++;
+                // เลือก 2 ตัวเลขแรกที่เจอมาใส่
+                let val1 = matches[0];
+                let val2 = matches[1];
+
+                addTableRow(count, val1, val2);
+            }
+        });
+
+        if (count === 0) {
+            alert("ไม่พบพิกัดที่ชัดเจน กรุณากรอกเองหรือลองครอบรูปให้เหลือแค่ตารางตัวเลข");
+            addRow(); // เพิ่มแถวเปล่าให้ 1 แถว
         }
     }
 
-    function downloadKML() {
-        let kml = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>`;
-        document.querySelectorAll('#tableBody tr').forEach((r, i) => {
-            const x = r.querySelector('.val-x').value;
-            const y = r.querySelector('.val-y').value;
-            kml += `<Placemark><name>P${i+1}</name><Point><coordinates>${x},${y},0</coordinates></Point></Placemark>`;
+    function addTableRow(index, x, y) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${index}</td>
+            <td><input type="text" class="coord-input x-val" value="${x}"></td>
+            <td><input type="text" class="coord-input y-val" value="${y}"></td>
+            <td><button class="del-btn" onclick="this.closest('tr').remove()">ลบ</button></td>
+        `;
+        coordsBody.appendChild(row);
+    }
+
+    // ปุ่มเพิ่มแถวเอง
+    function addRow() {
+        const index = coordsBody.children.length + 1;
+        addTableRow(index, "", "");
+    }
+
+    function generateKML() {
+        const rows = document.querySelectorAll('#coordsBody tr');
+        let placemarks = "";
+        let pathCoordinates = "";
+
+        rows.forEach((row, index) => {
+            const x = row.querySelector('.x-val').value.trim();
+            const y = row.querySelector('.y-val').value.trim();
+
+            if(x && y) {
+                // สร้าง Placemark แต่ละจุด
+                placemarks += `
+                <Placemark>
+                    <name>จุดที่ ${index + 1}</name>
+                    <Point><coordinates>${x},${y},0</coordinates></Point>
+                </Placemark>`;
+                
+                // เก็บค่าสำหรับลากเส้นเชื่อม (Path)
+                pathCoordinates += `${x},${y},0 \n`;
+            }
         });
-        kml += `</Document></kml>`;
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(new Blob([kml], { type: 'application/xml' }));
-        link.download = "data.kml";
-        link.click();
+
+        if (placemarks === "") {
+            alert("ไม่มีข้อมูลพิกัด");
+            return;
+        }
+
+        // โครงสร้าง KML (รวมจุด และ เส้นทางเดิน)
+        const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+    <name>Exported Coordinates</name>
+    ${placemarks}
+    <Placemark>
+        <name>Path Line</name>
+        <LineString>
+            <tessellate>1</tessellate>
+            <coordinates>
+                ${pathCoordinates}
+            </coordinates>
+        </LineString>
+    </Placemark>
+</Document>
+</kml>`;
+
+        // ดาวน์โหลด
+        const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = "my_coordinates.kml";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 </script>
 
