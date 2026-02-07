@@ -3,108 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Scanner (Auto-Detect Model)</title>
+    <title>AI Scanner (Diagnostic Mode)</title>
     <style>
-        body { font-family: 'Sarabun', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; color: #333; }
-        .container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-        h2 { text-align: center; color: #1a73e8; margin-top: 0; }
+        body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f0f2f5; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #d93025; }
         
-        .box { background: #f1f3f4; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #e0e0e0; }
-        label { font-weight: bold; display: block; margin-bottom: 5px; color: #1a73e8; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; background: white; }
+        input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;}
+        button { width: 100%; padding: 12px; margin-bottom: 10px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .btn-test { background: #fbbc04; color: #333; }
+        .btn-scan { background: #1a73e8; color: white; }
+        .btn-scan:disabled { background: #ccc; }
         
-        .upload-btn { border: 2px dashed #1a73e8; background: #e8f0fe; padding: 30px; text-align: center; border-radius: 10px; cursor: pointer; color: #1a73e8; font-weight: bold; }
-        .upload-btn:hover { background: #d2e3fc; }
-        #preview { max-width: 100%; display: none; margin-top: 15px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 10px; }
-        .btn-primary { background: #1a73e8; color: white; }
-        .btn-primary:disabled { background: #b0c4de; cursor: not-allowed; }
-        .btn-check { background: #fbbc04; color: #333; margin-top: 5px; font-size: 14px; padding: 8px;}
-        .btn-dl { background: #34a853; color: white; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
-        th { background: #e8f0fe; padding: 10px; border: 1px solid #ddd; }
-        td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-        input.coord { width: 100%; border: none; text-align: center; font-family: monospace; font-size: 14px; }
-        
-        #status { text-align: center; margin: 15px 0; font-size: 14px; color: #555; min-height: 20px; }
+        /* Debug Box (กล่องดำสำหรับฟ้อง Error) */
+        #debugConsole {
+            background: #000; color: #0f0; 
+            font-family: monospace; font-size: 12px; 
+            padding: 10px; border-radius: 5px; 
+            height: 150px; overflow-y: auto; 
+            margin-bottom: 20px; border: 2px solid #555;
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background: #eee; }
+        input.coord { width: 100%; border: none; text-align: center; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🤖 AI Scanner (รุ่นแก้บั๊ก)</h2>
+    <h2>🛠️ AI Scanner (V7: โหมดช่างซ่อม)</h2>
     
-    <div class="box">
-        <label>🔑 1. ใส่ API Key แล้วกดปุ่ม "เช็ครุ่น"</label>
-        <input type="password" id="apiKey" placeholder="วางรหัส AIzaSy... ที่นี่">
-        <button class="btn btn-check" onclick="checkAvailableModels()">🔄 กดปุ่มนี้เพื่อค้นหาว่าใช้รุ่นไหนได้บ้าง</button>
-    </div>
+    <label>🛑 บันทึกข้อผิดพลาด (Debug Log):</label>
+    <div id="debugConsole">รอเริ่มทำงาน...</div>
 
-    <div class="box">
-        <label>🧠 2. เลือกรุ่น AI (ระบบจะดึงมาให้)</label>
-        <select id="modelSelect">
-            <option value="" disabled selected>กรุณากดปุ่มสีเหลืองด้านบนก่อน...</option>
-        </select>
-    </div>
+    <label>🔑 API Key:</label>
+    <input type="password" id="apiKey" placeholder="วาง API Key ที่นี่">
+    
+    <button class="btn-test" onclick="testConnection()">📡 1. กดปุ่มนี้เพื่อทดสอบสัญญาณ</button>
 
-    <div class="upload-btn" onclick="document.getElementById('imageInput').click()">
-        📂 3. จิ้มเพื่อเลือกรูปภาพ
-        <input type="file" id="imageInput" accept="image/*" style="display:none">
-    </div>
-    <img id="preview">
+    <hr>
 
-    <button id="scanBtn" class="btn btn-primary" onclick="startScan()" disabled>🚀 เริ่มสแกน</button>
-    <p id="status"></p>
+    <label>📂 เลือกรูปภาพ:</label>
+    <input type="file" id="imageInput" accept="image/*">
+    <img id="preview" style="max-width:100%; display:none; margin-top:10px; border:1px solid #ccc;">
+
+    <button id="scanBtn" class="btn-scan" onclick="startScan()" disabled>🚀 2. เริ่มสแกน (ใช้โมเดลสำรอง)</button>
 
     <div id="resultArea" style="display:none;">
         <table id="dataTable">
             <thead>
                 <tr>
-                    <th width="15%">#</th>
-                    <th>X (Easting)</th>
-                    <th>Y (Northing)</th>
-                    <th width="15%">ลบ</th>
+                    <th>#</th>
+                    <th>X</th>
+                    <th>Y</th>
                 </tr>
             </thead>
             <tbody id="tableBody"></tbody>
         </table>
-        <button class="btn btn-dl" onclick="downloadKML()">🌍 ดาวน์โหลด KML</button>
+        <button onclick="downloadKML()" style="background:#34a853; color:white; margin-top:10px;">🌍 Download KML</button>
     </div>
 </div>
 
 <script>
-    // ตัวแปรและ Elements
+    // ตัวแปรระบบ
+    const consoleBox = document.getElementById('debugConsole');
     const apiKeyInput = document.getElementById('apiKey');
-    const modelSelect = document.getElementById('modelSelect');
-    const imageInput = document.getElementById('imageInput');
-    const preview = document.getElementById('preview');
     const scanBtn = document.getElementById('scanBtn');
-    const status = document.getElementById('status');
-    const resultArea = document.getElementById('resultArea');
-    const tableBody = document.getElementById('tableBody');
-    
     let base64Image = "";
 
-    // โหลด Key เก่าถ้ามี
+    // ฟังก์ชันเขียน Log ลงหน้าจอ
+    function log(msg, type="info") {
+        const time = new Date().toLocaleTimeString();
+        const color = type === "error" ? "red" : "#0f0";
+        consoleBox.innerHTML += `<div style="color:${color}">[${time}] ${msg}</div>`;
+        consoleBox.scrollTop = consoleBox.scrollHeight;
+    }
+
+    // โหลด Key เก่า
     window.onload = () => {
         const savedKey = localStorage.getItem("geminiApiKey");
-        if(savedKey) {
-            apiKeyInput.value = savedKey;
-            // ถ้ามี key ให้ลองเช็ค model เลย
-            setTimeout(checkAvailableModels, 500);
+        if(savedKey) apiKeyInput.value = savedKey;
+        log("Ready. กรุณากดปุ่มทดสอบสัญญาณ");
+    }
+
+    // 1. ฟังก์ชันทดสอบการเชื่อมต่อ (เช็คว่าเน็ตออกได้ไหม)
+    async function testConnection() {
+        const key = apiKeyInput.value.trim();
+        if(!key) return alert("ใส่ Key ก่อนครับ");
+        localStorage.setItem("geminiApiKey", key);
+
+        log("กำลังทดสอบเชื่อมต่อ Google...", "info");
+        
+        try {
+            // ลองยิงไปที่ Endpoint กลางเพื่อดูว่า Key ใช้ได้ไหม
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+            const data = await response.json();
+
+            if(data.error) {
+                log(`❌ เชื่อมต่อ Google ได้ แต่ Key มีปัญหา: ${data.error.message}`, "error");
+                alert(`Error: ${data.error.message}`);
+            } else {
+                log("✅ เชื่อมต่อสำเร็จ! Key นี้ใช้งานได้", "info");
+                log(`พบโมเดลทั้งหมด ${data.models.length} ตัว`, "info");
+                
+                // เช็คว่ามี gemini-1.5-flash ไหม
+                const hasFlash = data.models.some(m => m.name.includes("gemini-1.5-flash"));
+                log(`รองรับ 1.5-flash: ${hasFlash ? "ใช่" : "ไม่ใช่ (จะใช้ตัวอื่นแทน)"}`, "info");
+            }
+        } catch (err) {
+            log(`❌ เชื่อมต่อล้มเหลว (Network Error): ${err.message}`, "error");
+            log("คำแนะนำ: ปิด AdBlock หรือ VPN แล้วลองใหม่", "error");
         }
     }
 
-    // ฟังก์ชัน 1: เช็คว่า Key นี้ใช้ Model อะไรได้บ้าง (แก้ปัญหา Model Not Found)
-    async function checkAvailableModels() {
+    // จัดการรูปภาพ
+    document.getElementById('imageInput').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            base64Image = reader.result.split(',')[1];
+            document.getElementById('preview').src = reader.result;
+            document.getElementById('preview').style.display = 'block';
+            if(apiKeyInput.value) scanBtn.disabled = false;
+            log("รูปภาพพร้อมแล้ว", "info");
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // 2. ฟังก์ชันสแกน (ใช้ Hardcoded Model List)
+    async function startScan() {
         const key = apiKeyInput.value.trim();
-        if(!key) return alert("กรุณาใส่ API Key ก่อนครับ");
+        scanBtn.disabled = true;
+        document.getElementById('tableBody').innerHTML = '';
         
-        localStorage.setItem("geminiApiKey", key);
-        status.innerText = "⏳ กำลังเชื่อมต่อ Google เพื่อดึงรายชื่อโมเดล...";
+        // รายชื่อโมเดลที่จะลอง (ไล่จากตัวมาตรฐานสุดไปตัวใหม่)
+        const models = [
+            "gemini-1.5-flash", 
+            "gemini-1.5-pro",
+            "gemini-1.0-pro",  // ตัวกันตาย 1
+            "gemini-pro"       // ตัวกันตาย 2
+        ];
+
+        log("🚀 เริ่มกระบวนการสแกน...", "info");
+
+        for (const model of models) {
+            log(`🔄 กำลังลองโมเดล: ${model}...`, "info");
+            
+            try {
+                const result = await callGemini(key, model);
+                if(result) {
+                    log(`✅ สำเร็จ! ใช้โมเดล ${model}`, "info");
+                    displayResult(result);
+                    scanBtn.disabled = false;
+                    return; // จบการทำงานเมื่อเจอตัวที่ใช่
+                }
+            } catch (err) {
+                log(`⚠️ ${model} ล้มเหลว: ${err.message}`, "error");
+                // ลองตัวถัดไป...
+            }
+        }
+
+        log("❌ ล้มเหลวทุกโมเดล กรุณาแคปหน้าจอนี้ส่งให้ผู้พัฒนา", "error");
+        alert("ไม่สามารถอ่านค่าได้ ดู Error ในกล่องดำ");
+        scanBtn.disabled = false;
+    }
+
+    // ฟังก์ชันยิง API
+    async function callGemini(key, modelName) {
+        const prompt = "Extract X and Y coordinates from this table. Return ONLY JSON array like [[x1, y1], [x2, y2]]. No markdown.";
         
-        try {
-            // ยิงไปถาม Google ว่ามี Model อะไรบ้าง
-            const response = await fetch(`
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [
+                        { text: prompt },
+                        { inline_data: { mime_type: "image/jpeg", data: base64Image } }
+                    ]
+                }]
+            })
+        });
+
+        const data = await response.json();
+        
+        if(data.error) throw new Error(data.error.message);
+        if(!data.candidates || !data.candidates[0].content) throw new Error("No content returned");
+
+        let text = data.candidates[0].content.parts[0].text;
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(text);
+    }
+
+    function displayResult(coords) {
+        const tbody = document.getElementById('tableBody');
+        coords.forEach((c, i) => {
+            tbody.innerHTML += `<tr><td>${i+1}</td><td>${c[0]}</td><td>${c[1]}</td></tr>`;
+        });
+        document.getElementById('resultArea').style.display = 'block';
+    }
+
+    function downloadKML() {
+        let kml = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>`;
+        const rows = document.querySelectorAll('#tableBody tr');
+        rows.forEach((r, i) => {
+            const cols = r.querySelectorAll('td');
+            kml += `<Placemark><name>P${i+1}</name><Point><coordinates>${cols[1].innerText},${cols[2].innerText},0</coordinates></Point></Placemark>`;
+        });
+        kml += `</Document></kml>`;
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([kml], { type: 'application/xml' }));
+        link.download = "data.kml";
+        link.click();
+    }
+</script>
+
+</body>
+</html>
