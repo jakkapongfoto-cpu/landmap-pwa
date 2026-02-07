@@ -3,204 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>High Precision OCR to KML</title>
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <title>AI Super OCR to KML</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        body { font-family: 'Sarabun', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f6f8; }
-        .container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #0056b3; }
+        body { font-family: 'Sarabun', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f0f4f8; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h2 { text-align: center; color: #1a73e8; margin-bottom: 5px; }
+        p.subtitle { text-align: center; color: #666; font-size: 0.9em; margin-top: 0; }
+
+        /* API Key Input */
+        .api-box { background: #e8f0fe; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #d2e3fc; }
+        .api-box label { font-weight: bold; color: #174ea6; font-size: 0.9em; }
+        .api-box input { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         
-        /* Image Preview */
-        .upload-box { border: 2px dashed #cbd5e0; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px; cursor: pointer; background: #fff; }
-        #preview { max-width: 100%; display: none; margin-top: 10px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        /* Image Upload */
+        .upload-area { border: 2px dashed #ccc; padding: 20px; text-align: center; border-radius: 8px; cursor: pointer; transition: 0.2s; background: #fff; }
+        .upload-area:hover { border-color: #1a73e8; background: #f8fbff; }
+        #preview { max-width: 100%; display: none; margin-top: 15px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         
-        /* Progress Bar */
-        #progressContainer { display: none; width: 100%; background-color: #e0e0e0; border-radius: 5px; margin: 10px 0; }
-        #progressBar { width: 0%; height: 20px; background-color: #4caf50; border-radius: 5px; transition: width 0.3s; }
-        
-        /* Table */
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
-        th { background: #0056b3; color: white; padding: 10px; }
-        td { border-bottom: 1px solid #ddd; padding: 5px; }
-        input.coord { width: 95%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 14px; text-align: center; }
-        
-        .btn-main { background: #28a745; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 16px; cursor: pointer; margin-top: 15px; }
-        .btn-del { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
-        
-        /* Hidden canvas for processing */
-        #canvas { display: none; }
+        /* Button */
+        button.main-btn { background: #1a73e8; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        button.main-btn:disabled { background: #ccc; cursor: not-allowed; }
+        button.download-btn { background: #34a853; margin-top: 20px; }
+
+        /* Status & Table */
+        #status { text-align: center; margin: 15px 0; font-weight: bold; color: #555; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th { background: #1a73e8; color: white; padding: 10px; text-align: center; }
+        td { border-bottom: 1px solid #eee; padding: 8px; }
+        input.coord { width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; text-align: center; font-family: monospace; box-sizing: border-box;}
+        .del-btn { background: #ff5252; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📍 สแกนพิกัด (โหมดแม่นยำ)</h2>
+    <h2>🤖 AI Super Scanner</h2>
+    <p class="subtitle">ใช้ Google Gemini อ่านค่าพิกัดจากรูปภาพ</p>
+
+    <div class="api-box">
+        <label>🔑 ใส่ Google Gemini API Key ของคุณ</label>
+        <input type="password" id="apiKey" placeholder="วางรหัส AIzaSy... ที่นี่">
+        <div style="font-size: 10px; color: #666; margin-top: 5px;">*รหัสของคุณจะถูกใช้ในเครื่องนี้เท่านั้น ไม่มีการส่งไปเก็บที่อื่น</div>
+    </div>
     
-    <div class="upload-box" onclick="document.getElementById('imageInput').click()">
-        <p>📂 จิ้มเพื่อเลือกรูปภาพ</p>
+    <div class="upload-area" onclick="document.getElementById('imageInput').click()">
+        <span style="font-size: 24px;">📷</span><br>
+        จิ้มเพื่อเลือกรูปตารางพิกัด
         <input type="file" id="imageInput" accept="image/*" style="display:none">
         <img id="preview">
     </div>
 
-    <div id="progressContainer">
-        <div id="progressBar"></div>
-        <p id="statusText" style="text-align: center; font-size: 12px; margin-top: 5px;">กำลังประมวลผล...</p>
-    </div>
-
-    <canvas id="canvas"></canvas>
+    <button id="scanBtn" class="main-btn" onclick="startScan()" disabled>🚀 เริ่มให้ AI อ่านค่า</button>
+    <p id="status"></p>
 
     <div id="resultArea" style="display:none;">
-        <h3>ตรวจสอบข้อมูล</h3>
-        <p style="font-size: 12px; color: red;">*ระวัง: ตัวเลขในรูปเป็น UTM (80xxxx) หรือ Lat/Long (13.xx)?</p>
-        
         <table id="dataTable">
             <thead>
                 <tr>
-                    <th width="10%">#</th>
+                    <th>ลำดับ</th>
                     <th>X (Easting)</th>
                     <th>Y (Northing)</th>
-                    <th width="10%">ลบ</th>
+                    <th>ลบ</th>
                 </tr>
             </thead>
             <tbody id="tableBody"></tbody>
         </table>
-
-        <button class="btn-main" style="background: #17a2b8;" onclick="addEmptyRow()">+ เพิ่มแถว</button>
-        <button class="btn-main" onclick="downloadKML()">🌍 ดาวน์โหลด KML</button>
+        
+        <button class="main-btn download-btn" onclick="downloadKML()">🌍 ดาวน์โหลด KML</button>
     </div>
 </div>
 
 <script>
     const imageInput = document.getElementById('imageInput');
     const preview = document.getElementById('preview');
-    const progressContainer = document.getElementById('progressContainer');
-    const progressBar = document.getElementById('progressBar');
-    const statusText = document.getElementById('statusText');
+    const scanBtn = document.getElementById('scanBtn');
+    const status = document.getElementById('status');
     const resultArea = document.getElementById('resultArea');
     const tableBody = document.getElementById('tableBody');
-    const canvas = document.getElementById('canvas');
+    const apiKeyInput = document.getElementById('apiKey');
+    
+    let base64Image = "";
 
-    imageInput.addEventListener('change', async (e) => {
+    // โหลด API Key จากความจำเครื่อง (ถ้าเคยใส่ไว้)
+    window.onload = () => {
+        const savedKey = localStorage.getItem("geminiApiKey");
+        if(savedKey) apiKeyInput.value = savedKey;
+    }
+
+    // เมื่อเลือกรูป
+    imageInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Reset UI
-        preview.src = URL.createObjectURL(file);
-        preview.style.display = 'block';
-        resultArea.style.display = 'none';
-        tableBody.innerHTML = '';
-        progressContainer.style.display = 'block';
-        progressBar.style.width = '0%';
-
-        // 1. Pre-process Image (ปรับภาพเป็นขาวดำ เพื่อให้อ่านง่ายขึ้น)
-        const processedImage = await preprocessImage(file);
-
-        // 2. Start OCR
-        const worker = await Tesseract.createWorker('eng'); // ใช้ Model ภาษาอังกฤษ (อ่านตัวเลขได้ดีกว่า)
-        
-        // --- หัวใจสำคัญ: บังคับให้อ่านแค่ตัวเลข 0-9 ---
-        await worker.setParameters({
-            tessedit_char_whitelist: '0123456789', // ห้ามอ่าน ก-ฮ หรือเส้นตาราง
-            tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT, // โหมดอ่านตาราง
-        });
-
-        statusText.innerText = "กำลังสแกนตัวเลข...";
-        
-        const ret = await worker.recognize(processedImage, {
-            logger: m => {
-                if(m.status === 'recognizing text') {
-                    progressBar.style.width = (m.progress * 100) + '%';
-                }
-            }
-        });
-
-        await worker.terminate();
-        progressContainer.style.display = 'none';
-        
-        // 3. Process Result
-        const text = ret.data.text;
-        console.log("Raw OCR:", text); // ดูค่าดิบใน Console
-        processTextToRows(text);
-        resultArea.style.display = 'block';
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            base64Image = reader.result.split(',')[1]; // ตัด headerทิ้ง เอาแค่เนื้อ base64
+            preview.src = reader.result;
+            preview.style.display = 'block';
+            checkReady();
+        };
+        reader.readAsDataURL(file);
     });
 
-    // ฟังก์ชันแต่งภาพให้เป็นขาว-ดำ (High Contrast)
-    function preprocessImage(file) {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.src = URL.createObjectURL(file);
-            img.onload = () => {
-                const ctx = canvas.getContext('2d');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
+    apiKeyInput.addEventListener('input', checkReady);
 
-                // ดึงข้อมูลพิกเซล
-                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imgData.data;
-
-                // แปลงเป็นขาวดำ (Thresholding)
-                for (let i = 0; i < data.length; i += 4) {
-                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                    const color = avg > 140 ? 255 : 0; // ถ้าสีจางให้เป็นขาว ถ้าเข้มให้เป็นดำ
-                    data[i] = data[i + 1] = data[i + 2] = color;
-                }
-                ctx.putImageData(imgData, 0, 0);
-                resolve(canvas.toDataURL());
-            };
-        });
-    }
-
-    function processTextToRows(text) {
-        // แยกบรรทัดและกรองเฉพาะที่มีตัวเลข
-        const lines = text.split('\n').filter(line => line.trim().length > 0);
-        let count = 0;
-
-        lines.forEach(line => {
-            // ดึงตัวเลขทุกชุดในบรรทัดนั้น
-            const matches = line.match(/\d+/g); 
-
-            // เงื่อนไข: ต้องเจอตัวเลขอย่างน้อย 2 ชุด และตัวเลขต้องยาวหน่อย (กันเลขหน้าข้อ)
-            if (matches && matches.length >= 2) {
-                // กรองเอาเฉพาะตัวเลขที่มี 6 หลักขึ้นไป (พิกัด UTM มักจะยาว)
-                const bigNumbers = matches.filter(n => n.length >= 5);
-                
-                if(bigNumbers.length >= 2) {
-                    count++;
-                    addRowToTable(count, bigNumbers[0], bigNumbers[1]);
-                }
-            }
-        });
-
-        if (count === 0) {
-            alert("ไม่พบตัวเลขที่ชัดเจน กรุณาถ่ายภาพให้ชัดขึ้น หรือลองพิมพ์เอง");
-            addEmptyRow();
+    function checkReady() {
+        if(apiKeyInput.value && base64Image) {
+            scanBtn.disabled = false;
+        } else {
+            scanBtn.disabled = true;
         }
     }
 
-    function addRowToTable(index, x, y) {
+    // ฟังก์ชันเรียก Google Gemini API
+    async function startScan() {
+        const key = apiKeyInput.value.trim();
+        localStorage.setItem("geminiApiKey", key); // บันทึกไว้ใช้ครั้งหน้า
+        
+        status.innerText = "⏳ AI กำลังวิเคราะห์รูปภาพ... (รอแป๊บนึง)";
+        scanBtn.disabled = true;
+        tableBody.innerHTML = '';
+        resultArea.style.display = 'none';
+
+        const prompt = "ดูรูปภาพนี้ นี่คือตารางพิกัดภูมิศาสตร์ คอลัมน์ซ้ายคือค่า X (Easting) และคอลัมน์ขวาคือค่า Y (Northing) กรุณาแกะตัวเลขออกมาทั้งหมด แล้วส่งคืนในรูปแบบ JSON Array ของ Array เท่านั้น ห้ามมี Markdown หรือคำอธิบายอื่น ตัวอย่างเช่น [[808194, 1456852], [808068, 1457426]]";
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            { inline_data: { mime_type: "image/jpeg", data: base64Image } }
+                        ]
+                    }]
+                })
+            });
+
+            const data = await response.json();
+            
+            if(data.error) {
+                throw new Error(data.error.message);
+            }
+
+            // แกะข้อความจาก AI
+            let rawText = data.candidates[0].content.parts[0].text;
+            // ล้าง format เผื่อ AI ส่ง ```json มา
+            rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            
+            const coordinates = JSON.parse(rawText);
+            
+            status.innerText = `✅ อ่านสำเร็จ! เจอทั้งหมด ${coordinates.length} จุด`;
+            
+            coordinates.forEach((coord, index) => {
+                addTableRow(index + 1, coord[0], coord[1]);
+            });
+            
+            resultArea.style.display = 'block';
+
+        } catch (err) {
+            status.innerText = "❌ เกิดข้อผิดพลาด: " + err.message;
+            alert("API Key อาจผิด หรือ รูปภาพใหญ่เกินไป");
+        } finally {
+            scanBtn.disabled = false;
+        }
+    }
+
+    function addTableRow(index, x, y) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td style="text-align:center">${index}</td>
             <td><input type="text" class="coord val-x" value="${x}"></td>
             <td><input type="text" class="coord val-y" value="${y}"></td>
-            <td style="text-align:center"><button class="btn-del" onclick="this.closest('tr').remove()">ลบ</button></td>
+            <td style="text-align:center"><button class="del-btn" onclick="this.closest('tr').remove()">ลบ</button></td>
         `;
         tableBody.appendChild(tr);
-    }
-
-    function addEmptyRow() {
-        const index = tableBody.children.length + 1;
-        addRowToTable(index, "", "");
     }
 
     function downloadKML() {
         let kmlBody = '';
         const rows = document.querySelectorAll('#tableBody tr');
+        let isValid = true;
+        
+        // --- ส่วนสำคัญ: แปลง UTM เป็น LatLong อย่างง่าย (เตือนผู้ใช้) ---
+        // หมายเหตุ: โค้ดนี้จะ Export ค่าตามที่เห็น ถ้าเป็น UTM ก็จะออกไปเป็นเลขหลักแสนหลักล้าน
+        // ผู้ใช้ต้องนำไปแปลงต่อ หรือ เปิดในโปรแกรมที่รองรับ
         
         rows.forEach((row, i) => {
             const x = row.querySelector('.val-x').value;
             const y = row.querySelector('.val-y').value;
+            
+            // เช็คว่าเป็น UTM หรือไม่ (ถ้า X มากกว่า 180 แสดงว่าเป็น UTM แน่ๆ)
+            if (parseFloat(x) > 180 && i === 0) {
+                 alert("⚠️ คำเตือน: ค่าพิกัดดูเหมือนจะเป็น UTM (หลักแสน/หลักล้าน) \n\nไฟล์ KML ที่ได้ต้องนำไปเปิดในโปรแกรมที่ตั้งค่า Projection ได้ถูกต้อง หรือแปลงเป็น Lat/Long ก่อนใช้งานใน Google Earth");
+            }
+
             if(x && y) {
                 kmlBody += `
                 <Placemark>
@@ -212,14 +211,14 @@
         });
 
         const kmlHeader = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
+<kml xmlns="[http://www.opengis.net/kml/2.2](http://www.opengis.net/kml/2.2)">
 <Document>${kmlBody}</Document>
 </kml>`;
 
         const blob = new Blob([kmlHeader], { type: 'application/vnd.google-earth.kml+xml' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = 'coordinates.kml';
+        link.download = 'ai_coordinates.kml';
         link.click();
     }
 </script>
